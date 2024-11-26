@@ -1,6 +1,9 @@
 import time
 from pywifi import const
 
+from utils.ssid_update import ssid_update
+
+
 def safe_scan(iface):
     """Проверяет статус адаптера и выполняет безопасное сканирование."""
     print(f'Статус ({iface.name()}):', iface.status())
@@ -9,7 +12,7 @@ def safe_scan(iface):
         time.sleep(0.1)
     iface.scan()
 
-def get_rssi_readings(iface, ssid):
+def get_rssi_readings(iface):
     """
     Получает RSSI для указанного SSID.
     :param iface: Wi-Fi интерфейс.
@@ -19,25 +22,7 @@ def get_rssi_readings(iface, ssid):
     rssi_value = None
     safe_scan(iface)
     scan_results = iface.scan_results()
-    for network in scan_results:
-        if network.ssid == ssid:
-            rssi_value = network.signal
-            break
-    if not rssi_value:
-        raise Exception('Отсутствует нужный источник Wi-Fi')
-    return rssi_value
-
-def collect_rssi_thread(iface, ssid, rssi_data, index, barrier):
-    """
-    Собирает RSSI с интерфейса и обновляет данные.
-    :param iface: Wi-Fi интерфейс.
-    :param ssid: Название сети.
-    :param rssi_data: Хранилище данных RSSI.
-    :param index: Индекс интерфейса.
-    :param barrier: Барьер для синхронизации.
-    """
-    while True:
-        rssi_value = get_rssi_readings(iface, ssid)
-        print(f'Интерфейс {iface.name()}, RSSI: {rssi_value}')
-        rssi_data[index].append(rssi_value)
-        barrier.wait()
+    wifi_dict = {ssid_update(result.ssid): result.signal for result in scan_results if result.ssid}
+    print(len(wifi_dict))
+    # result_dict = {ssid: wifi_dict[ssid]} if ssid and ssid in wifi_dict else (wifi_dict if ssid is None else {})
+    return wifi_dict
