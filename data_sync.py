@@ -24,6 +24,7 @@ class DataSync:
             t.start()
 
         while True:
+            print(self.avg_rssi_data)
             time.sleep(interval)
             iface_count = len(self.interfaces)
             all_ssids = [set(self.rssi_data[i].keys()) for i in range(iface_count)]
@@ -34,15 +35,13 @@ class DataSync:
                     rssi = self.rssi_data[i][ssid]
                     rssi_values[ssid].append(rssi)
             avg_rssi = {ssid: sum(values) / len(values) for ssid, values in rssi_values.items()}
+            print('Нижний уровень готов записать данные для верхнего')
             with self.condition:
+                print('Нижний уровень начал запись данных')
                 # Обновляем avg_rssi_data
                 for ssid, new_avg in avg_rssi.items():
-                    if ssid in self.avg_rssi_data:
-                        # Если устройство уже существует, добавляем новое среднее значение
-                        self.avg_rssi_data[ssid].append(new_avg)
-                    else:
-                        # Если устройство новое, создаем новую запись
-                        self.avg_rssi_data[ssid] = [new_avg]
+                    # Добавляем новое среднее значение.
+                    self.avg_rssi_data[ssid].append(new_avg)
 
                 # Удаляем устройства, которые больше не существуют в avg_rssi
                 devices_to_remove = [ssid for ssid in self.avg_rssi_data if ssid not in avg_rssi]
@@ -60,7 +59,7 @@ class DataSync:
         from wifi_collector import get_rssi_readings  # Импорт из другого модуля
         while True:
             rssi_dict = get_rssi_readings(iface)
-            print(f'Интерфейс {index}, Длина словаря: {len(rssi_dict)}, Словарь устройство-rssi: {rssi_dict}')
+            # print(f'Интерфейс {index}, Длина словаря: {len(rssi_dict)}, Словарь устройство-rssi: {rssi_dict}')
             for ssid, rssi in rssi_dict.items():
                 self.rssi_data[index][ssid] = rssi
             self.barrier.wait()

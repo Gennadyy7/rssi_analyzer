@@ -19,13 +19,13 @@ def main():
     collection_thread = threading.Thread(target=data_sync.start_collection)
     collection_thread.start()
 
-    # Обновление графика
-    def update_plot():
-        with data_sync.condition:
-            data_sync.condition.wait()  # Ждем, пока появятся новые данные
-            avg_rssi = data_sync.avg_rssi_data[-1]
-            distance = get_distance(avg_rssi)
-            print(f"Среднее RSSI: {avg_rssi}, Расстояние: {distance} м")
+    with data_sync.condition:
+        data_sync.condition.wait()  # Ждем, пока появятся новые данные
+        print('Дождались данных, можно вывести')
+        distances = {ssid: get_distance(rssis[-1]) for ssid, rssis in data_sync.avg_rssi_data.items()}
+        for ssid, d in distances.items():
+            print(ssid, d)
+        print()
 
 
 if __name__ == "__main__":
