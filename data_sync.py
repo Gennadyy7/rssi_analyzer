@@ -49,6 +49,8 @@ class DataSync:
                 for ssid in devices_to_remove:
                     del self.avg_rssi_data[ssid]
                 self.condition.notify()  # Уведомляем о новых данных
+            for values in self.rssi_data.values():
+                values.clear()
             print('Замеры собраны и обработаны, адаптеры могут начать новую итерацию получения замеров!')
             self.barrier.wait()
 
@@ -59,7 +61,7 @@ class DataSync:
         from wifi_collector import get_rssi_readings  # Импорт из другого модуля
         while True:
             rssi_dict = get_rssi_readings(iface)
-            # print(f'Интерфейс {index}, Длина словаря: {len(rssi_dict)}, Словарь устройство-rssi: {rssi_dict}')
+            print(f'Интерфейс {index}, Длина словаря: {len(rssi_dict)}, Словарь устройство-rssi: {rssi_dict}')
             for ssid, rssi in rssi_dict.items():
                 self.rssi_data[index][ssid] = rssi
             self.barrier.wait()
