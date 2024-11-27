@@ -12,13 +12,15 @@ class WiFiApp(tk.Tk):
     def __init__(self, data_sync):
         super().__init__()
         self.data_sync = data_sync
+        self.current_page = None
+        self.selected_ssid = None
 
         # Настройка окна
         self.title("Wi-Fi RSSI Monitor")
         self.geometry("400x600")
         self.resizable(False, True)
         self.minsize(400, 325)
-        self.maxsize(600, 600)
+        self.maxsize(800, 600)
         self.configure(bg="#0D0D0D")
 
         self.container = Frame(self, bg="#0D0D0D")
@@ -35,23 +37,43 @@ class WiFiApp(tk.Tk):
         if page_name == "MainPage":
             self.pages[page_name] = MainPage(self.container, self, self.data_sync)
         elif page_name == "DetailsPage":
-            pass
-        self.pages[page_name].pack(fill="both", expand=True)
+            self.pages[page_name] = DetailsPage(
+                self.container, self, self.data_sync
+            )
+        self.pages[page_name].place(relwidth=1, relheight=1)
 
-    def show_page(self, page_name):
+    def show_page(self, page_name, ssid=None):
         """
         Переключает видимость между страницами.
         """
         if page_name not in self.pages:
             self.create_page(page_name)
+
+        if self.current_page and \
+            hasattr(self.pages[self.current_page], "stop_update"):
+            self.pages[self.current_page].stop_update()
+
+        self.current_page = page_name
+
         page = self.pages[page_name]
         page.tkraise()
 
+        self.selected_ssid = ssid
+        if hasattr(page, "ssid"):
+            if not self.selected_ssid:
+                raise Exception("ssid не был передан, хотя вроде как вызывается detailpage")
+            page.ssid = self.selected_ssid
+
+        if hasattr(page, "start_update"):
+            page.start_update()
+
         # Настраиваем размеры окна для страницы
+        self.resizable(True, True)
         if page_name == "DetailsPage":
-            self.geometry("600x400")  # Изменяем размер для подробностей
+            self.geometry("800x600")  # Изменяем размер для подробностей
         else:
             self.geometry("400x600")  # Возвращаем размер для главной страницы
+        self.resizable(False, True)
 
 
 class MainPage(Frame):
@@ -70,10 +92,8 @@ class MainPage(Frame):
         # Храним виджеты для обновления
         self.items = {}
 
-        # Запускаем поток обновления интерфейса
-        self.update_thread = threading.Thread(target=self.update_interface)
-        self.update_thread.daemon = True
-        self.update_thread.start()
+        self.update_thread = None
+        self.running = False
 
     def create_widgets(self):
         # Заголовок приложения
@@ -109,6 +129,7 @@ class MainPage(Frame):
         """
         Обновляем область прокрутки, когда содержимое Frame изменяется.
         """
+        print('Запустился frame_config для main')
         self.scroll_canvas.configure(scrollregion=self.scroll_canvas.bbox("all"))
         self.scroll_canvas.itemconfig(self.scroll_window, width=self.scroll_canvas.winfo_width())
 
@@ -116,19 +137,34 @@ class MainPage(Frame):
         """
         Обрабатывает прокрутку колесиком мыши.
         """
+        print('Крутится колесо мыши в main page')
         if event.num == 4 or event.delta > 0:  # Вверх (Linux или Windows)
             self.scroll_canvas.yview_scroll(-1, "units")
         elif event.num == 5 or event.delta < 0:  # Вниз (Linux или Windows)
             self.scroll_canvas.yview_scroll(1, "units")
 
+    def start_update(self):
+        """Запускает обновление интерфейса."""
+        self.running = True
+        self.update_thread = threading.Thread(target=self.update_interface)
+        self.update_thread.daemon = True
+        self.update_thread.start()
+
+    def stop_update(self):
+        """Останавливает обновление интерфейса."""
+        self.running = False
+
     def update_interface(self):
         """
         Обновление интерфейса при появлении новых данных.
         """
-        while True:
+        while self.running:
             with self.data_sync.condition:
                 self.data_sync.condition.wait()  # Ждем новые данные
 
+                if not self.running:
+                    break
+                print("MainPage пошел обновляться")
                 # Обновляем список устройств
                 self.update_list()
 
@@ -196,7 +232,7 @@ class MainPage(Frame):
             fg="#0D0D0D",
             borderwidth=0,
             highlightthickness=0,
-            command=lambda: self.show_details(ssid),
+            command=lambda: self.controller.show_page("DetailsPage", ssid),
         )
         details_button.pack(anchor="e", padx=10)
 
@@ -218,25 +254,27 @@ class DetailsPage(Frame):
         super().__init__(parent, bg="#0D0D0D")
         self.controller = controller
         self.data_sync = data_sync
+        self.ssid = None
         self.create_widgets()
 
-        # Запускаем поток обновления интерфейса
-        self.update_thread = threading.Thread(target=self.update_interface)
-        self.update_thread.daemon = True
-        self.update_thread.start()
+        self.update_thread = None
+        self.running = False
+
 
     def update_interface(self):
         """
         Обновление интерфейса при появлении новых данных.
         """
-        while True:
+        while self.running:
             with self.data_sync.condition:
                 self.data_sync.condition.wait()  # Ждем новые данные
 
-                ssid = 'ZTE-5311d0'
-                value = self.data_sync.avg_rssi_data.get(ssid, None)
-                if value:
-                    value_str = f"{value:.2f}"
+                if not self.running:
+                    break
+                print("DetailPage пошел обновляться")
+                last_values = self.data_sync.avg_rssi_data.get(self.ssid, None)
+                if last_values:
+                    value_str = f"{last_values[-1]:.2f}"
                 else:
                     value_str = "-"
 
@@ -244,15 +282,27 @@ class DetailsPage(Frame):
 
 
     def create_widgets(self):
+        back_button = tk.Button(
+            self,
+            text="🢀",
+            font=("Arial", 10),
+            bg="#007FD0",
+            fg="#0D0D0D",
+            borderwidth=0,
+            highlightthickness=0,
+            command=lambda: self.controller.show_page("MainPage"),
+        )
+        back_button.pack(anchor="nw", padx=10)
+
         # Заголовок приложения
-        title = tk.Label(
+        self.title = tk.Label(
             self,
             text="Device: -",
             font=("Arial", 16),
             fg="#007FD0",
             bg="#0D0D0D"
         )
-        title.pack(pady=10, fill="x")
+        self.title.pack(pady=10, fill="x")
 
         self.device_rssi_label = tk.Label(
             self,
@@ -262,6 +312,19 @@ class DetailsPage(Frame):
             bg="#0D0D0D"
         )
         self.device_rssi_label.pack(pady=10, fill="x")
+
+
+    def start_update(self):
+        self.title.config(text=f"Device: {self.ssid}")
+        self.running = True
+        self.update_thread = threading.Thread(target=self.update_interface)
+        self.update_thread.daemon = True
+        self.update_thread.start()
+
+    def stop_update(self):
+        self.title.config(text=f"Device: -")
+        self.device_rssi_label.config(text=f"RSSI: -")
+        self.running = False
 
 
 def main():
