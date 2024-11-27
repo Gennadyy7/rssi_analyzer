@@ -18,10 +18,48 @@ class WiFiApp(tk.Tk):
         self.geometry("400x600")
         self.resizable(False, True)
         self.minsize(400, 325)
-        self.maxsize(400, 600)
+        self.maxsize(600, 600)
         self.configure(bg="#0D0D0D")
 
-        # Создаем виджеты
+        self.container = Frame(self, bg="#0D0D0D")
+        self.container.pack(fill="both", expand=True)
+
+        self.pages = {}
+
+        self.show_page("MainPage")
+
+    def create_page(self, page_name):
+        """
+        Создаёт страницу по имени и добавляет её в словарь страниц.
+        """
+        if page_name == "MainPage":
+            self.pages[page_name] = MainPage(self.container, self, self.data_sync)
+        elif page_name == "DetailsPage":
+            pass
+        self.pages[page_name].pack(fill="both", expand=True)
+
+    def show_page(self, page_name):
+        """
+        Переключает видимость между страницами.
+        """
+        if page_name not in self.pages:
+            self.create_page(page_name)
+        page = self.pages[page_name]
+        page.tkraise()
+
+        # Настраиваем размеры окна для страницы
+        if page_name == "DetailsPage":
+            self.geometry("600x400")  # Изменяем размер для подробностей
+        else:
+            self.geometry("400x600")  # Возвращаем размер для главной страницы
+
+
+class MainPage(Frame):
+    def __init__(self, parent, controller, data_sync):
+        super().__init__(parent, bg="#0D0D0D")
+        self.controller = controller
+        self.data_sync = data_sync
+
         self.create_widgets()
 
         # Настраиваем прокрутку колесиком
@@ -174,11 +212,56 @@ class WiFiApp(tk.Tk):
                 if widget.cget("text").startswith("RSSI:"):
                     widget.config(text=f"RSSI: {avg_rssi:.2f}")
 
-    def show_details(self, ssid):
+
+class DetailsPage(Frame):
+    def __init__(self, parent, controller, data_sync):
+        super().__init__(parent, bg="#0D0D0D")
+        self.controller = controller
+        self.data_sync = data_sync
+        self.create_widgets()
+
+        # Запускаем поток обновления интерфейса
+        self.update_thread = threading.Thread(target=self.update_interface)
+        self.update_thread.daemon = True
+        self.update_thread.start()
+
+    def update_interface(self):
         """
-        Заглушка для перехода на подробности устройства.
+        Обновление интерфейса при появлении новых данных.
         """
-        print(f"Показать подробности для {ssid}")
+        while True:
+            with self.data_sync.condition:
+                self.data_sync.condition.wait()  # Ждем новые данные
+
+                ssid = 'ZTE-5311d0'
+                value = self.data_sync.avg_rssi_data.get(ssid, None)
+                if value:
+                    value_str = f"{value:.2f}"
+                else:
+                    value_str = "-"
+
+                self.device_rssi_label.config(text=f"RSSI: {value_str}")
+
+
+    def create_widgets(self):
+        # Заголовок приложения
+        title = tk.Label(
+            self,
+            text="Device: -",
+            font=("Arial", 16),
+            fg="#007FD0",
+            bg="#0D0D0D"
+        )
+        title.pack(pady=10, fill="x")
+
+        self.device_rssi_label = tk.Label(
+            self,
+            text=f"RSSI: -",
+            font=("Arial", 16),
+            fg="#007FD0",
+            bg="#0D0D0D"
+        )
+        self.device_rssi_label.pack(pady=10, fill="x")
 
 
 def main():
