@@ -1,12 +1,15 @@
 import threading
 import tkinter as tk
-from fcntl import FASYNC
 from tkinter import Canvas, Frame, Scrollbar
 from pywifi import PyWiFi
 from data_sync import DataSync
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import numpy as np
+
+from utils.get_distance import get_distance
+from utils.options import options
+from utils.verdicts import verdicts
 
 # Путь к иконке Wi-Fi
 ICON_PATH = "wifi_icon.png"  # Замените на ваш путь к иконке Wi-Fi
@@ -23,9 +26,9 @@ class WiFiApp(tk.Tk):
         # Настройка окна
         self.title("Wi-Fi RSSI Monitor")
         self.geometry("400x600")
-        self.resizable(False, True)
+        self.resizable(False, False)
         self.minsize(400, 325)
-        self.maxsize(800, 600)
+        self.maxsize(900, 700)
         self.configure(bg="#0D0D0D")
 
         self.container = Frame(self, bg="#0D0D0D")
@@ -80,10 +83,10 @@ class WiFiApp(tk.Tk):
         # Настраиваем размеры окна для страницы
         self.resizable(True, True)
         if page_name == "DetailsPage":
-            self.geometry("800x600")  # Изменяем размер для подробностей
+            self.geometry("900x700")  # Изменяем размер для подробностей
         else:
             self.geometry("400x600")  # Возвращаем размер для главной страницы
-        self.resizable(False, True)
+        self.resizable(False, False)
 
 
 class MainPage(Frame):
@@ -265,6 +268,7 @@ class DetailsPage(Frame):
         self.controller = controller
         self.data_sync = data_sync
         self.ssid = None
+        self.annotation_type = "uncertain"
 
         self.window_size = 4
         self.threshold = 7
@@ -280,7 +284,8 @@ class DetailsPage(Frame):
         Возвращает одну из аннотаций: 'up', 'down', 'stationary' или 'uncertain'.
         """
         if len(last_values) < 2 * self.window_size:
-            return "uncertain"
+            self.annotation_type = "uncertain"
+            return self.annotation_type
 
         values_list = list(last_values)
 
@@ -294,11 +299,13 @@ class DetailsPage(Frame):
 
         # Анализируем изменения
         if abs(avg1 - avg2) <= self.threshold:
-            return "stationary"  # Малое изменение
+            self.annotation_type = "stationary"  # Малое изменение
         elif avg1 < avg2:
-            return "up"  # Сигнал увеличивается (приближение)
+            self.annotation_type = "up"
         else:
-            return "down"  # Сигнал уменьшается (удаление)
+            self.annotation_type = "down"
+
+        return self.annotation_type
 
     def update_interface(self):
         """
@@ -324,6 +331,8 @@ class DetailsPage(Frame):
                     value_str = "-"
 
                 self.device_rssi_label.config(text=f"RSSI: {value_str}")
+                self.device_distance_label.config(text=f'Оценка расстояния (м): {get_distance(last_values[-1]):.2f}')
+                self.verdict_label.config(text=f"Вердикт: {verdicts[self.annotation_type]}")
 
     def update_graph(self, last_values, annotation_type="uncertain"):
         """
@@ -434,6 +443,24 @@ class DetailsPage(Frame):
         )
         self.device_rssi_label.pack(anchor="w", pady=5)
 
+        self.device_distance_label = tk.Label(
+            info_frame,
+            text=f"Оценка расстояния: -",
+            font=("Arial", 16),
+            fg="#007FD0",
+            bg="#0D0D0D"
+        )
+        self.device_distance_label.pack(anchor="w", pady=5)
+
+        self.verdict_label = tk.Label(
+            info_frame,
+            text=f"Вердикт: {verdicts[self.annotation_type]}",
+            font=("Arial", 16),
+            fg="#007FD0",
+            bg="#0D0D0D"
+        )
+        self.verdict_label.pack(anchor="w", pady=5)
+
         controls_frame = tk.Frame(bottom_section, bg="#0D0D0D")
         controls_frame.pack(side="right", fill="y", padx=10, pady=5)
 
@@ -484,6 +511,53 @@ class DetailsPage(Frame):
         )
         self.threshold_entry.insert(0, "7")  # Значение по умолчанию
         self.threshold_entry.grid(row=1, column=1, padx=5, pady=5)
+
+        jump_threshold_label = tk.Label(
+            controls_frame,
+            text="Порог скачка:",
+            font=("Arial", 12),
+            fg="#007FD0",
+            bg="#0D0D0D"
+        )
+        jump_threshold_label.grid(row=2, column=0, sticky="w", padx=5, pady=5)
+
+        self.jump_threshold_entry = tk.Entry(
+            controls_frame,
+            font=("Arial", 12),
+            bg="#0D0D0D",
+            fg="#007FD0",
+            highlightthickness=1,
+            highlightbackground="#007FD0",
+            highlightcolor="#FFFFFF",
+            borderwidth=0,
+            insertbackground="#007FD0",
+            width=20  # Одинаковая ширина для всех полей
+        )
+        self.jump_threshold_entry.insert(0, "10")  # Значение по умолчанию
+        self.jump_threshold_entry.grid(row=2, column=1, padx=5, pady=5)
+
+        environment_label = tk.Label(
+            controls_frame,
+            text="Коэффициент среды:",
+            font=("Arial", 12),
+            fg="#007FD0",
+            bg="#0D0D0D"
+        )
+        environment_label.grid(row=3, column=0, sticky="w", padx=5, pady=5)
+
+        option_menu = tk.OptionMenu(controls_frame, tk.StringVar(value=options[1]), *options)
+        option_menu.config(
+            font=("Arial", 10),
+            bg="#0D0D0D",  # Фон совпадает с окном
+            fg="#007FD0",  # Голубой текст
+            highlightthickness=1,
+            borderwidth=0,
+            highlightbackground="#007FD0",  # Рамка
+            highlightcolor="#FFFFFF",
+            width=20
+        )
+        # Расположение выпадающего списка
+        option_menu.grid(row=3, column=1, padx=5, pady=5)
 
 
     def start_update(self):
