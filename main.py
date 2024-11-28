@@ -3,6 +3,9 @@ import tkinter as tk
 from tkinter import Canvas, Frame, Scrollbar
 from pywifi import PyWiFi
 from data_sync import DataSync
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.pyplot as plt
+import numpy as np
 
 # Путь к иконке Wi-Fi
 ICON_PATH = "wifi_icon.png"  # Замените на ваш путь к иконке Wi-Fi
@@ -273,6 +276,7 @@ class DetailsPage(Frame):
                     break
                 print("DetailPage пошел обновляться")
                 last_values = self.data_sync.avg_rssi_data.get(self.ssid, None)
+                self.update_graph(last_values)
                 if last_values:
                     value_str = f"{last_values[-1]:.2f}"
                 else:
@@ -280,6 +284,19 @@ class DetailsPage(Frame):
 
                 self.device_rssi_label.config(text=f"RSSI: {value_str}")
 
+    def update_graph(self, last_values):
+        """
+        Обновляет данные графика.
+        """
+        if hasattr(self, "line"):
+            self.line.remove()
+
+        if last_values:
+            x_data = np.arange(7 - len(last_values), 7)
+            y_data = list(last_values)
+            self.line, = self.ax.plot(x_data, y_data, marker='o', color='white')
+
+        self.canvas.draw()
 
     def create_widgets(self):
         back_button = tk.Button(
@@ -292,7 +309,7 @@ class DetailsPage(Frame):
             highlightthickness=0,
             command=lambda: self.controller.show_page("MainPage"),
         )
-        back_button.pack(anchor="nw", padx=10)
+        back_button.pack(anchor="nw")
 
         # Заголовок приложения
         self.title = tk.Label(
@@ -304,14 +321,48 @@ class DetailsPage(Frame):
         )
         self.title.pack(pady=10, fill="x")
 
+        graph_frame = tk.Frame(self, bg="#0D0D0D")
+        graph_frame.pack(fill="both", expand=True)
+
+        self.fig = plt.figure()
+        self.ax = self.fig.add_subplot(111)
+
+        num_ticks = 8
+        x_ticks = np.linspace(0, 7, num_ticks)
+        self.ax.set_xticks(x_ticks)
+        self.ax.set_xticklabels(['7 секунд', '', '', '', '', '', '1', 'Вердикт'])
+        self.ax.set_xlim(0, 7)
+
+        y_ticks = np.arange(-100, 1, 10)
+        self.ax.set_yticks(y_ticks)
+        self.ax.set_ylim(-100, 0)
+
+        self.ax.grid(True, which='major', color='#007FD0', linestyle='--', linewidth=0.5, alpha=0.2)
+
+        self.fig.patch.set_facecolor("#0D0D0D")
+        self.ax.set_facecolor("#0D0D0D")
+        self.ax.spines['bottom'].set_color("#007FD0")
+        self.ax.tick_params(axis='x', colors='#007FD0')
+        self.ax.spines['left'].set_color("#007FD0")
+        self.ax.tick_params(axis='y', colors='#007FD0')
+        self.ax.spines['top'].set_color("none")
+        self.ax.spines['right'].set_color("none")
+
+        self.canvas = FigureCanvasTkAgg(self.fig, master=graph_frame)
+        self.canvas.get_tk_widget().pack(fill="both", expand=True)
+
+        # RSSI Информация
+        info_frame = tk.Frame(self, bg="#0D0D0D")
+        info_frame.pack(fill="x", padx=10, pady=10)
+
         self.device_rssi_label = tk.Label(
-            self,
+            info_frame,
             text=f"RSSI: -",
             font=("Arial", 16),
             fg="#007FD0",
             bg="#0D0D0D"
         )
-        self.device_rssi_label.pack(pady=10, fill="x")
+        self.device_rssi_label.pack(anchor="w")
 
 
     def start_update(self):
