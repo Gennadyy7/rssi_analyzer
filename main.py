@@ -1,6 +1,6 @@
 import threading
 import tkinter as tk
-from tkinter import Canvas, Frame, Scrollbar
+from tkinter import Canvas, Frame, Scrollbar, messagebox
 from pywifi import PyWiFi
 from data_sync import DataSync
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -385,6 +385,10 @@ class DetailsPage(Frame):
                 # print("DetailPage пошел обновляться")
                 last_values = self.data_sync.avg_rssi_data.get(self.ssid, None)
 
+                if not last_values:
+                    self.running = False
+                    self.after(0, self.show_signal_loss_message)
+
                 annotation_type = "uncertain"
                 if last_values:
                     annotation_type = self.analyze_trend(last_values)
@@ -399,6 +403,13 @@ class DetailsPage(Frame):
 
                 self.device_rssi_label.config(text=f"RSSI: {value_str}")
                 self.verdict_label.config(text=f"Вердикт: {verdicts[self.annotation_type]}")
+
+    def show_signal_loss_message(self):
+        messagebox.showinfo(
+            "Сигнал потерян",
+            "Сигнал устройства потерян. Вы будете перенаправлены на главную страницу."
+        )
+        self.controller.show_page("MainPage")
 
     def compare_interfaces(self):
         snapshot = self.data_sync.last_rssi_snapshot
