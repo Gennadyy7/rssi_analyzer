@@ -269,6 +269,8 @@ class DetailsPage(Frame):
         self.data_sync = data_sync
         self.ssid = None
         self.annotation_type = "uncertain"
+        self.line = None
+        self.annotation = None
 
         self.N = None
         self.window_size = 4
@@ -427,11 +429,13 @@ class DetailsPage(Frame):
         """
         Обновляет данные графика.
         """
-        if hasattr(self, "line"):
+        if hasattr(self, "line") and self.line is not None:
             self.line.remove()
+            self.line = None
 
-        if hasattr(self, "annotation"):
+        if hasattr(self, "annotation") and self.annotation is not None:
             self.annotation.remove()
+            self.annotation = None
 
         if last_values:
             x_data = np.arange(8 - len(last_values), 8)
@@ -695,11 +699,21 @@ class DetailsPage(Frame):
         self.update_thread.start()
 
     def stop_update(self):
-        self.title.config(text=f"SSID: -")
-        self.device_rssi_label.config(text=f"RSSI: -")
         self.running = False
         self.update_thread.join()
-        print('Осталось разрушить график')
+        self.title.config(text=f"SSID: -")
+        self.device_rssi_label.config(text=f"RSSI: -")
+        self.device_distance_label.config(text=f"Оценка расстояния: -")
+        self.annotation_type = 'uncertain'
+        self.ssid = None
+        self.update_thread = None
+        if hasattr(self, "line") and self.line is not None:
+            self.line.remove()
+            self.line = None
+        if hasattr(self, "annotation") and self.annotation is not None:
+            self.annotation.remove()
+            self.annotation = None
+        print('Осталось закрыть график')
         self.close_graph()
 
     def close_graph(self):
