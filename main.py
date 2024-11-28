@@ -1,5 +1,6 @@
 import threading
 import tkinter as tk
+from fcntl import FASYNC
 from tkinter import Canvas, Frame, Scrollbar
 from pywifi import PyWiFi
 from data_sync import DataSync
@@ -264,13 +265,14 @@ class DetailsPage(Frame):
         self.controller = controller
         self.data_sync = data_sync
         self.ssid = None
+
+        self.window_size = 4
+        self.threshold = 7
+
         self.create_widgets()
 
         self.update_thread = None
         self.running = False
-
-        self.window_size = 4
-        self.threshold = 7
 
     def analyze_trend(self, last_values):
         """
@@ -343,7 +345,7 @@ class DetailsPage(Frame):
             y_position = -50
 
             annotation_map = {
-                "uncertain": {"text": "?", "color": "#FF00FF", "size": 60},
+                "uncertain": {"text": "?", "color": "white", "size": 60},
                 "stationary": {"text": "≈", "color": "white", "size": 60},
                 "down": {"text": "↓", "color": "#FF073A", "size": 60},
                 "up": {"text": "↑", "color": "#39FF14", "size": 60},
@@ -377,20 +379,10 @@ class DetailsPage(Frame):
         )
         back_button.pack(anchor="nw")
 
-        # Заголовок приложения
-        self.title = tk.Label(
-            self,
-            text="Device: -",
-            font=("Arial", 16),
-            fg="#007FD0",
-            bg="#0D0D0D"
-        )
-        self.title.pack(pady=10, fill="x")
-
         graph_frame = tk.Frame(self, bg="#0D0D0D")
-        graph_frame.pack(fill="both", expand=True)
+        graph_frame.pack(fill="both", expand=False, padx=10, pady=5)
 
-        self.fig = plt.figure()
+        self.fig = plt.figure(figsize=(6, 4))
         self.ax = self.fig.add_subplot(111)
 
         num_ticks = 9
@@ -418,8 +410,20 @@ class DetailsPage(Frame):
         self.canvas.get_tk_widget().pack(fill="both", expand=True)
 
         # RSSI Информация
-        info_frame = tk.Frame(self, bg="#0D0D0D")
-        info_frame.pack(fill="x", padx=10, pady=10)
+        bottom_section = tk.Frame(self, bg="#0D0D0D")
+        bottom_section.pack(fill="x", padx=10, pady=10)
+
+        info_frame = tk.Frame(bottom_section, bg="#0D0D0D")
+        info_frame.pack(side="left", fill="y", padx=10, pady=5)
+
+        self.title = tk.Label(
+            info_frame,
+            text=f"SSID: -",
+            font=("Arial", 16),
+            fg="#007FD0",
+            bg="#0D0D0D"
+        )
+        self.title.pack(anchor="w", pady=5)
 
         self.device_rssi_label = tk.Label(
             info_frame,
@@ -428,18 +432,69 @@ class DetailsPage(Frame):
             fg="#007FD0",
             bg="#0D0D0D"
         )
-        self.device_rssi_label.pack(anchor="w")
+        self.device_rssi_label.pack(anchor="w", pady=5)
+
+        controls_frame = tk.Frame(bottom_section, bg="#0D0D0D")
+        controls_frame.pack(side="right", fill="y", padx=10, pady=5)
+
+        window_size_label = tk.Label(
+            controls_frame,
+            text="Размер окна:",
+            font=("Arial", 12),
+            fg="#007FD0",
+            bg="#0D0D0D"
+        )
+        window_size_label.grid(row=0, column=0, sticky="w", padx=5, pady=5)  # Левый край
+
+        self.window_size_entry = tk.Entry(
+            controls_frame,
+            font=("Arial", 12),
+            bg="#0D0D0D",
+            fg="#007FD0",
+            highlightthickness=1,
+            highlightbackground="#007FD0",
+            highlightcolor="#FFFFFF",
+            borderwidth=0,
+            insertbackground="#007FD0",
+            width=20  # Одинаковая ширина для всех полей
+        )
+        self.window_size_entry.insert(0, "4")  # Значение по умолчанию
+        self.window_size_entry.grid(row=0, column=1, padx=5, pady=5)
+
+        threshold_label = tk.Label(
+            controls_frame,
+            text="Порог:",
+            font=("Arial", 12),
+            fg="#007FD0",
+            bg="#0D0D0D"
+        )
+        threshold_label.grid(row=1, column=0, sticky="w", padx=5, pady=5)
+
+        self.threshold_entry = tk.Entry(
+            controls_frame,
+            font=("Arial", 12),
+            bg="#0D0D0D",
+            fg="#007FD0",
+            highlightthickness=1,
+            highlightbackground="#007FD0",
+            highlightcolor="#FFFFFF",
+            borderwidth=0,
+            insertbackground="#007FD0",
+            width=20  # Одинаковая ширина для всех полей
+        )
+        self.threshold_entry.insert(0, "7")  # Значение по умолчанию
+        self.threshold_entry.grid(row=1, column=1, padx=5, pady=5)
 
 
     def start_update(self):
-        self.title.config(text=f"Device: {self.ssid}")
+        self.title.config(text=f"SSID: {self.ssid}")
         self.running = True
         self.update_thread = threading.Thread(target=self.update_interface)
         self.update_thread.daemon = True
         self.update_thread.start()
 
     def stop_update(self):
-        self.title.config(text=f"Device: -")
+        self.title.config(text=f"SSID: -")
         self.device_rssi_label.config(text=f"RSSI: -")
         self.running = False
         self.update_thread.join()
