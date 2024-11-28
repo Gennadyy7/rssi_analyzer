@@ -15,6 +15,7 @@ class WiFiApp(tk.Tk):
     def __init__(self, data_sync):
         super().__init__()
         self.data_sync = data_sync
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
         self.current_page = None
         self.selected_ssid = None
 
@@ -32,6 +33,11 @@ class WiFiApp(tk.Tk):
         self.pages = {}
 
         self.show_page("MainPage")
+
+    def on_close(self):
+        if self.current_page == "DetailsPage":
+            self.pages[self.current_page].stop_update()
+        self.destroy()
 
     def create_page(self, page_name):
         """
@@ -376,6 +382,13 @@ class DetailsPage(Frame):
         self.title.config(text=f"Device: -")
         self.device_rssi_label.config(text=f"RSSI: -")
         self.running = False
+        self.update_thread.join()
+        self.close_graph()
+
+    def close_graph(self):
+        if self.fig:
+            plt.close(self.fig)
+            self.fig = None
 
 
 def main():
