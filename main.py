@@ -290,17 +290,44 @@ class DetailsPage(Frame):
 
                 self.device_rssi_label.config(text=f"RSSI: {value_str}")
 
-    def update_graph(self, last_values):
+    def update_graph(self, last_values, annotation_type="stationary"):
         """
         Обновляет данные графика.
         """
         if hasattr(self, "line"):
             self.line.remove()
 
+        if hasattr(self, "annotation"):
+            self.annotation.remove()
+
         if last_values:
             x_data = np.arange(7 - len(last_values), 7)
             y_data = list(last_values)
             self.line, = self.ax.plot(x_data, y_data, marker='o', color='white')
+
+        if annotation_type:
+            x_position = 6.5
+            y_position = -50
+
+            annotation_map = {
+                "uncertain": {"text": "?", "color": "#FF00FF", "size": 60},
+                "stationary": {"text": "≈", "color": "#04d9ff", "size": 60},
+                "down": {"text": "↓", "color": "#FF073A", "size": 60},
+                "up": {"text": "↑", "color": "#39FF14", "size": 60},
+            }
+
+            if annotation_type in annotation_map:
+                props = annotation_map[annotation_type]
+                # Основная аннотация
+                self.annotation = self.ax.annotate(
+                    props["text"],
+                    xy=(x_position, y_position),
+                    color=props["color"],
+                    fontsize=props["size"],
+                    ha="center",
+                    va="center",
+                    fontfamily="monospace"
+                )
 
         self.canvas.draw()
 
