@@ -1,6 +1,7 @@
 import threading
 import time
 from collections import deque, defaultdict
+import copy
 
 
 class DataSync:
@@ -9,6 +10,7 @@ class DataSync:
         # self.rssi_data = {i: deque(maxlen=rssi_buffer_size) for i in range(len(interfaces))}
         self.rssi_data = {i: defaultdict(int) for i in range(len(interfaces))}
         self.avg_rssi_data = defaultdict(lambda: deque(maxlen=avg_buffer_size))
+        self.last_rssi_snapshot = None
         self.barrier = threading.Barrier(len(interfaces) + 1)
         self.condition = threading.Condition()
 
@@ -38,6 +40,9 @@ class DataSync:
             # print('Нижний уровень готов записать данные для верхнего')
             with self.condition:
                 # print('Нижний уровень начал запись данных')
+
+                self.last_rssi_snapshot = copy.deepcopy(self.rssi_data)
+
                 # Обновляем avg_rssi_data
                 for ssid, new_avg in avg_rssi.items():
                     # Добавляем новое среднее значение.

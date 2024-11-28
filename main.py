@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from utils.get_distance import get_distance
-from utils.options import options
+from utils.options import options, options_dict
 from utils.verdicts import verdicts
 
 # Путь к иконке Wi-Fi
@@ -142,7 +142,7 @@ class MainPage(Frame):
         """
         Обновляем область прокрутки, когда содержимое Frame изменяется.
         """
-        print('Запустился frame_config для main')
+        # print('Запустился frame_config для main')
         self.scroll_canvas.configure(scrollregion=self.scroll_canvas.bbox("all"))
         self.scroll_canvas.itemconfig(self.scroll_window, width=self.scroll_canvas.winfo_width())
 
@@ -177,7 +177,7 @@ class MainPage(Frame):
 
                 if not self.running:
                     break
-                print("MainPage пошел обновляться")
+                # print("MainPage пошел обновляться")
                 # Обновляем список устройств
                 self.update_list()
 
@@ -270,13 +270,71 @@ class DetailsPage(Frame):
         self.ssid = None
         self.annotation_type = "uncertain"
 
+        self.N = None
         self.window_size = 4
         self.threshold = 7
+        self.jump_threshold = 10
+        self.interface_threshold = 20
 
         self.create_widgets()
 
         self.update_thread = None
         self.running = False
+
+    def on_window_size_entry_focus_out(self, event):
+        value = event.widget.get()
+        try:
+            # Преобразуем значение в целое число
+            value = int(value)
+            # Проверяем, находится ли оно в пределах от 1 до 4
+            if 1 <= value <= 4:
+                self.window_size = value  # Обновляем self.window_size
+                # Устанавливаем стандартный цвет рамки
+                event.widget.configure(highlightbackground="#007FD0")
+            else:
+                # Подсвечиваем рамку красным цветом
+                event.widget.configure(highlightbackground="#FF073A")
+        except ValueError:
+            # Подсвечиваем рамку красным цветом при неверном вводе
+            event.widget.configure(highlightbackground="#FF073A")
+
+
+    def on_threshold_entry_focus_out(self, event):
+        value = event.widget.get()
+        try:
+            # Преобразуем значение в целое число
+            value = int(value)
+            # Проверяем, находится ли оно в пределах от 1 до 4
+            if 0 <= value <= 10:
+                self.threshold = value  # Обновляем self.window_size
+                # Устанавливаем стандартный цвет рамки
+                event.widget.configure(highlightbackground="#007FD0")
+            else:
+                # Подсвечиваем рамку красным цветом
+                event.widget.configure(highlightbackground="#FF073A")
+        except ValueError:
+            # Подсвечиваем рамку красным цветом при неверном вводе
+            event.widget.configure(highlightbackground="#FF073A")
+
+    def on_jump_threshold_entry_focus_out(self, event):
+        value = event.widget.get()
+        try:
+            # Преобразуем значение в целое число
+            value = int(value)
+            # Проверяем, находится ли оно в пределах от 1 до 4
+            if 0 <= value <= 20:
+                self.jump_threshold = value  # Обновляем self.window_size
+                # Устанавливаем стандартный цвет рамки
+                event.widget.configure(highlightbackground="#007FD0")
+            else:
+                # Подсвечиваем рамку красным цветом
+                event.widget.configure(highlightbackground="#FF073A")
+        except ValueError:
+            # Подсвечиваем рамку красным цветом при неверном вводе
+            event.widget.configure(highlightbackground="#FF073A")
+
+    def on_dropdown_select(self, selected_option):
+        self.N = options_dict[selected_option]
 
     def analyze_trend(self, last_values):
         """
@@ -290,8 +348,8 @@ class DetailsPage(Frame):
         values_list = list(last_values)
 
         # Разделяем окно на два перекрывающихся
-        window1 = values_list[:self.window_size]
-        window2 = values_list[self.window_size:2*self.window_size]
+        window1 = values_list[-2 * self.window_size:-self.window_size]
+        window2 = values_list[-self.window_size:]
 
         # Средние значения окон
         avg1 = sum(window1) / len(window1)
@@ -317,7 +375,7 @@ class DetailsPage(Frame):
 
                 if not self.running:
                     break
-                print("DetailPage пошел обновляться")
+                # print("DetailPage пошел обновляться")
                 last_values = self.data_sync.avg_rssi_data.get(self.ssid, None)
 
                 annotation_type = "uncertain"
@@ -327,12 +385,38 @@ class DetailsPage(Frame):
                 self.update_graph(last_values, annotation_type)
                 if last_values:
                     value_str = f"{last_values[-1]:.2f}"
+                    self.device_distance_label.config(
+                        text=f'Оценка расстояния (м): {get_distance(last_values[-1], N=self.N):.2f}')
                 else:
                     value_str = "-"
 
                 self.device_rssi_label.config(text=f"RSSI: {value_str}")
-                self.device_distance_label.config(text=f'Оценка расстояния (м): {get_distance(last_values[-1]):.2f}')
                 self.verdict_label.config(text=f"Вердикт: {verdicts[self.annotation_type]}")
+
+    def compare_interfaces(self):
+        snapshot = self.data_sync.last_rssi_snapshot
+        if not snapshot or len(snapshot) <= 1:
+            return False
+        rssi_values = [snapshot[i].get(self.ssid) for i in snapshot]
+        if None in rssi_values:
+            return False
+        # print(rssi_values)
+        max_rssi = max(rssi_values)
+        min_rssi = min(rssi_values)
+        if abs(max_rssi - min_rssi) > self.interface_threshold:
+            return True
+        else:
+            return False
+
+    def check_jump(self, last_values):
+        if not last_values:
+            return False
+        if len(last_values) < 2:
+            return False
+        if abs(last_values[-1] - last_values[-2]) > self.jump_threshold:
+            return True
+        else:
+            return False
 
     def update_graph(self, last_values, annotation_type="uncertain"):
         """
@@ -348,6 +432,41 @@ class DetailsPage(Frame):
             x_data = np.arange(8 - len(last_values), 8)
             y_data = list(last_values)
             self.line, = self.ax.plot(x_data, y_data, marker='o', color='white')
+
+        if self.compare_interfaces():
+            if not hasattr(self, "threshold_annotation"):
+                # Добавляем надпись "Превышение разностного порога адаптеров"
+                self.threshold_annotation = self.ax.annotate(
+                    "Превышение разностного порога адаптеров",
+                    xy=(0, -3),
+                    color="yellow",
+                    fontsize=10,
+                    ha="left",
+                    va="center",
+                    fontfamily="monospace"
+                )
+        else:
+            # Удаляем надпись, если она есть
+            if hasattr(self, "threshold_annotation"):
+                self.threshold_annotation.remove()
+                del self.threshold_annotation
+
+        if self.check_jump(last_values):
+            if not hasattr(self, "jump_annotation"):
+                self.jump_annotation = self.ax.annotate(
+                    "Резкий скачок сигнала",
+                    xy=(0, -9),
+                    color="red",
+                    fontsize=10,
+                    ha="left",
+                    va="center",
+                    fontfamily="monospace"
+                )
+        else:
+            if hasattr(self, "jump_annotation"):
+                self.jump_annotation.remove()
+                del self.jump_annotation
+
 
         if annotation_type:
             x_position = 7.5
@@ -487,6 +606,7 @@ class DetailsPage(Frame):
         )
         self.window_size_entry.insert(0, "4")  # Значение по умолчанию
         self.window_size_entry.grid(row=0, column=1, padx=5, pady=5)
+        self.window_size_entry.bind("<FocusOut>", self.on_window_size_entry_focus_out)
 
         threshold_label = tk.Label(
             controls_frame,
@@ -511,6 +631,7 @@ class DetailsPage(Frame):
         )
         self.threshold_entry.insert(0, "7")  # Значение по умолчанию
         self.threshold_entry.grid(row=1, column=1, padx=5, pady=5)
+        self.threshold_entry.bind("<FocusOut>", self.on_threshold_entry_focus_out)
 
         jump_threshold_label = tk.Label(
             controls_frame,
@@ -535,6 +656,7 @@ class DetailsPage(Frame):
         )
         self.jump_threshold_entry.insert(0, "10")  # Значение по умолчанию
         self.jump_threshold_entry.grid(row=2, column=1, padx=5, pady=5)
+        self.jump_threshold_entry.bind("<FocusOut>", self.on_jump_threshold_entry_focus_out)
 
         environment_label = tk.Label(
             controls_frame,
@@ -545,8 +667,8 @@ class DetailsPage(Frame):
         )
         environment_label.grid(row=3, column=0, sticky="w", padx=5, pady=5)
 
-        option_menu = tk.OptionMenu(controls_frame, tk.StringVar(value=options[1]), *options)
-        option_menu.config(
+        self.option_menu = tk.OptionMenu(controls_frame, tk.StringVar(value=options[1]), *options, command=lambda option: self.on_dropdown_select(option))
+        self.option_menu.config(
             font=("Arial", 10),
             bg="#0D0D0D",  # Фон совпадает с окном
             fg="#007FD0",  # Голубой текст
@@ -557,7 +679,7 @@ class DetailsPage(Frame):
             width=20
         )
         # Расположение выпадающего списка
-        option_menu.grid(row=3, column=1, padx=5, pady=5)
+        self.option_menu.grid(row=3, column=1, padx=5, pady=5)
 
 
     def start_update(self):
@@ -572,12 +694,12 @@ class DetailsPage(Frame):
         self.device_rssi_label.config(text=f"RSSI: -")
         self.running = False
         self.update_thread.join()
+        print('Осталось разрушить график')
         self.close_graph()
 
     def close_graph(self):
         if self.fig:
             plt.close(self.fig)
-            self.fig = None
 
 
 def main():
