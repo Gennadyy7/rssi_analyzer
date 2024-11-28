@@ -269,6 +269,34 @@ class DetailsPage(Frame):
         self.update_thread = None
         self.running = False
 
+        self.window_size = 4
+        self.threshold = 7
+
+    def analyze_trend(self, last_values):
+        """
+        Анализирует тренд на основе последних значений.
+        Возвращает одну из аннотаций: 'up', 'down', 'stationary' или 'uncertain'.
+        """
+        if len(last_values) < 2 * self.window_size:
+            return "uncertain"
+
+        values_list = list(last_values)
+
+        # Разделяем окно на два перекрывающихся
+        window1 = values_list[:self.window_size]
+        window2 = values_list[self.window_size:2*self.window_size]
+
+        # Средние значения окон
+        avg1 = sum(window1) / len(window1)
+        avg2 = sum(window2) / len(window2)
+
+        # Анализируем изменения
+        if abs(avg1 - avg2) <= self.threshold:
+            return "stationary"  # Малое изменение
+        elif avg1 < avg2:
+            return "up"  # Сигнал увеличивается (приближение)
+        else:
+            return "down"  # Сигнал уменьшается (удаление)
 
     def update_interface(self):
         """
@@ -282,7 +310,12 @@ class DetailsPage(Frame):
                     break
                 print("DetailPage пошел обновляться")
                 last_values = self.data_sync.avg_rssi_data.get(self.ssid, None)
-                self.update_graph(last_values)
+
+                annotation_type = "uncertain"
+                if last_values:
+                    annotation_type = self.analyze_trend(last_values)
+
+                self.update_graph(last_values, annotation_type)
                 if last_values:
                     value_str = f"{last_values[-1]:.2f}"
                 else:
@@ -290,7 +323,7 @@ class DetailsPage(Frame):
 
                 self.device_rssi_label.config(text=f"RSSI: {value_str}")
 
-    def update_graph(self, last_values, annotation_type="stationary"):
+    def update_graph(self, last_values, annotation_type="uncertain"):
         """
         Обновляет данные графика.
         """
@@ -311,7 +344,7 @@ class DetailsPage(Frame):
 
             annotation_map = {
                 "uncertain": {"text": "?", "color": "#FF00FF", "size": 60},
-                "stationary": {"text": "≈", "color": "#04d9ff", "size": 60},
+                "stationary": {"text": "≈", "color": "white", "size": 60},
                 "down": {"text": "↓", "color": "#FF073A", "size": 60},
                 "up": {"text": "↑", "color": "#39FF14", "size": 60},
             }
