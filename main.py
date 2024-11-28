@@ -375,6 +375,11 @@ class DetailsPage(Frame):
 
                 if not self.running:
                     break
+                print(f'Размер окна: {self.window_size}',
+                      f'Порог: {self.threshold}',
+                      f'Межинтерфейсный порог: {self.interface_threshold}',
+                      f'Скачковый порог: {self.jump_threshold}',
+                      f'Коэффициент N: {self.N}', sep='\n', end='\n\n')
                 # print("DetailPage пошел обновляться")
                 last_values = self.data_sync.avg_rssi_data.get(self.ssid, None)
 
