@@ -301,12 +301,12 @@ class DetailsPage(Frame):
             self.annotation.remove()
 
         if last_values:
-            x_data = np.arange(7 - len(last_values), 7)
+            x_data = np.arange(8 - len(last_values), 8)
             y_data = list(last_values)
             self.line, = self.ax.plot(x_data, y_data, marker='o', color='white')
 
         if annotation_type:
-            x_position = 6.5
+            x_position = 7.5
             y_position = -50
 
             annotation_map = {
@@ -360,11 +360,11 @@ class DetailsPage(Frame):
         self.fig = plt.figure()
         self.ax = self.fig.add_subplot(111)
 
-        num_ticks = 8
-        x_ticks = np.linspace(0, 7, num_ticks)
+        num_ticks = 9
+        x_ticks = np.linspace(0, 8, num_ticks)
         self.ax.set_xticks(x_ticks)
-        self.ax.set_xticklabels(['7 секунд', '', '', '', '', '', '1', 'Вердикт'])
-        self.ax.set_xlim(0, 7)
+        self.ax.set_xticklabels(['8 секунд', '', '', '', '', '', '', '1', 'Вердикт'])
+        self.ax.set_xlim(0, 8)
 
         y_ticks = np.arange(-100, 1, 10)
         self.ax.set_yticks(y_ticks)

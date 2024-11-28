@@ -4,7 +4,7 @@ from collections import deque, defaultdict
 
 
 class DataSync:
-    def __init__(self, interfaces, avg_buffer_size=7):
+    def __init__(self, interfaces, avg_buffer_size=8):
         self.interfaces = interfaces
         # self.rssi_data = {i: deque(maxlen=rssi_buffer_size) for i in range(len(interfaces))}
         self.rssi_data = {i: defaultdict(int) for i in range(len(interfaces))}
