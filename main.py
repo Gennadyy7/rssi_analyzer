@@ -345,6 +345,10 @@ class DetailsPage(Frame):
         Анализирует тренд на основе последних значений.
         Возвращает одну из аннотаций: 'up', 'down', 'stationary' или 'uncertain'.
         """
+        if self.data_sync.low_precision:
+            self.annotation_type = "uncertain"
+            return self.annotation_type
+
         if len(last_values) < 2 * self.window_size:
             self.annotation_type = "uncertain"
             return self.annotation_type
@@ -399,7 +403,7 @@ class DetailsPage(Frame):
                 if last_values:
                     value_str = f"{last_values[-1]:.2f}"
                     self.device_distance_label.config(
-                        text=f'Оценка расстояния (м): {get_distance(last_values[-1], N=self.N):.2f}')
+                        text=f'Оценка расстояния (м): {get_distance(last_values[-1], N=self.N):.2f}' if not self.data_sync.low_precision else 'Режим пониженной точности')
                 else:
                     value_str = "-"
 

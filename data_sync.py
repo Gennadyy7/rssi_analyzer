@@ -28,6 +28,7 @@ class DataSync:
         self.actual_adapters = len(interfaces)
         self.is_only_init = True
         self.run_adapters = True
+        self.low_precision = False
 
     def start_collection(self, interval=1):
         """
@@ -81,6 +82,8 @@ class DataSync:
                 print('Старые потоки для адаптеров завершены')
                 temp_actual_adapters_threads.clear()
                 self.__init__(interfaces)
+                if len(interfaces) == 1:
+                    self.low_precision = True
                 print('Атрибуты класса переинициализированы')
                 continue
             elif len(temp_actual_adapters_threads) != len(interfaces):
@@ -96,6 +99,8 @@ class DataSync:
                 print('Старые потоки для адаптеров завершены')
                 temp_actual_adapters_threads.clear()
                 self.__init__(interfaces)
+                if len(interfaces) == 1:
+                    self.low_precision = True
                 print('Атрибуты класса переинициализированы')
                 continue
 
