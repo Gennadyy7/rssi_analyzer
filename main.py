@@ -1,13 +1,15 @@
 import threading
 import tkinter as tk
 from tkinter import Canvas, Frame, Scrollbar, messagebox
-from pywifi import PyWiFi
+
 from data_sync import DataSync
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import numpy as np
 
 from utils.get_distance import get_distance
+from utils.get_ifaces import IfacesProvider
+
 from utils.options import options, options_dict
 from utils.verdicts import verdicts
 
@@ -733,12 +735,7 @@ class DetailsPage(Frame):
 
 
 def main():
-    # Настройка Wi-Fi
-    wifi = PyWiFi()
-    interfaces = wifi.interfaces()[1:]  # Пропускаем первый адаптер
-
-    # Создаем объект синхронизации данных
-    data_sync = DataSync(interfaces)
+    data_sync = DataSync()
 
     # Поток для сбора данных
     collection_thread = threading.Thread(target=data_sync.start_collection)
