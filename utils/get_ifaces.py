@@ -10,7 +10,7 @@ class IfacesProvider:
             give_rights()
             try:
                 interfaces = cls.WIFI.interfaces()[1:]
-            except FileNotFoundError as err:
+            except (FileNotFoundError, PermissionError) as err:
                 print('Либа не справилась с отслеживанием файлов для адаптеров', err)
                 continue
             return interfaces
